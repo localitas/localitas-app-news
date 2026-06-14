@@ -1,0 +1,421 @@
+{{define "index.html"}}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News — Localitas</title>
+    <base href="{{.BasePath}}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        :root { --sidebar-w: 240px; --color-bg-base: #fcfbfe; --color-bg-elevated: #f0eef7; --color-text-primary: #1a1625; --color-text-secondary: #4a3f5c; --color-glass-base: rgba(255,255,255,0.75); --color-glass-border: rgba(139,117,169,0.35); --color-accent: #7d6b96; --shadow: 0 4px 16px rgba(139,117,169,0.08); }
+        [data-theme="dark"] { --color-bg-base: #120f1a; --color-bg-elevated: #221b2e; --color-text-primary: #e8e4f0; --color-text-secondary: #b3a8c8; --color-glass-base: rgba(37,31,53,0.85); --color-glass-border: rgba(184,164,212,0.15); --color-accent: #c5b3e0; --shadow: 0 6px 24px rgba(0,0,0,0.4); }
+        html, body { margin:0; padding:0; height:100%; overflow:hidden; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--color-bg-base); color: var(--color-text-primary); display:flex; }
+        .bg { position:fixed; inset:0; background: radial-gradient(circle at 10% 20%, var(--color-bg-elevated), var(--color-bg-base) 90%); z-index:-1; }
+
+        .sidebar { width: var(--sidebar-w); min-width:180px; max-width:400px; flex-shrink:0; border-right:1px solid var(--color-glass-border); display:flex; flex-direction:column; background:var(--color-glass-base); position:relative; }
+        .resize-handle { position:absolute; right:0; top:0; bottom:0; width:4px; cursor:col-resize; z-index:5; }
+        .resize-handle:hover, .resize-handle:active { background:var(--color-accent); }
+        .sidebar-header { height:56px; min-height:56px; padding:0 0.75rem; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--color-glass-border); }
+        .sidebar-section { padding:0.25rem 0; }
+        .sidebar-section-title { font-size:0.6875rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--color-text-secondary); padding:0.5rem 0.75rem 0.25rem; display:flex; justify-content:space-between; align-items:center; }
+        .sidebar-item { padding:0.4rem 0.75rem; cursor:pointer; display:flex; align-items:center; gap:0.5rem; font-size:0.8125rem; border-radius:0.375rem; margin:0.125rem 0.5rem; }
+        .sidebar-item:hover { background:rgba(142,122,168,0.15); }
+        .sidebar-item.active { background:rgba(168,85,247,0.15); font-weight:500; }
+        .feed-badge { font-size:0.6875rem; background:var(--color-accent); color:var(--color-bg-elevated); border-radius:999px; padding:0.0625rem 0.375rem; margin-left:auto; min-width:18px; text-align:center; }
+        .add-btn { background:none; border:none; cursor:pointer; color:var(--color-text-secondary); padding:0.125rem; display:flex; }
+        .add-btn:hover { color:var(--color-accent); }
+        .delete-btn { background:none; border:none; cursor:pointer; color:var(--color-text-secondary); padding:0.125rem; display:none; font-size:0.75rem; }
+        .sidebar-item:hover .delete-btn { display:flex; }
+        .delete-btn:hover { color:#ef4444; }
+
+        .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+        .toolbar { height:56px; min-height:56px; padding:0 1rem; display:flex; align-items:center; gap:0.5rem; border-bottom:1px solid var(--color-glass-border); background:var(--color-glass-base); }
+        .btn { padding:0.375rem 0.75rem; border-radius:0.5rem; border:1px solid var(--color-glass-border); background:var(--color-glass-base); color:var(--color-text-primary); cursor:pointer; font-size:0.8125rem; display:flex; align-items:center; gap:0.25rem; }
+        .btn:hover { border-color:var(--color-accent); }
+        .btn-primary { background:var(--color-accent); color:var(--color-bg-elevated); border-color:var(--color-accent); }
+        input { background:var(--color-glass-base); border:1px solid var(--color-glass-border); border-radius:0.375rem; padding:0.375rem 0.75rem; color:var(--color-text-primary); font-size:0.8125rem; outline:none; }
+        input:focus { border-color:var(--color-accent); }
+
+        .article-list { flex:1; overflow-y:auto; }
+        .article-item { padding:0.75rem 1rem; border-bottom:1px solid var(--color-glass-border); cursor:pointer; }
+        .article-item:hover { background:rgba(142,122,168,0.08); }
+        .article-item.read { opacity:0.6; }
+        .article-title { font-size:0.875rem; font-weight:500; margin-bottom:0.25rem; }
+        .article-meta { font-size:0.75rem; color:var(--color-text-secondary); }
+        .article-desc { font-size:0.8125rem; color:var(--color-text-secondary); margin-top:0.25rem; line-height:1.4; }
+        .star { cursor:pointer; color:var(--color-text-secondary); flex-shrink:0; }
+        .star.active { color:#f59e0b; }
+        .tag-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+        .tag-pill { display:inline-block; font-size:0.6875rem; padding:0.0625rem 0.375rem; border-radius:999px; margin-right:0.25rem; margin-top:0.25rem; cursor:pointer; border:1px solid transparent; }
+        .tag-pill:hover { opacity:0.8; }
+        .tag-menu { position:absolute; right:0; top:100%; background:var(--color-glass-base); border:1px solid var(--color-glass-border); border-radius:0.375rem; box-shadow:var(--shadow); z-index:10; min-width:140px; padding:0.25rem; }
+        .tag-menu-item { padding:0.375rem 0.5rem; font-size:0.8125rem; cursor:pointer; border-radius:0.25rem; display:flex; align-items:center; gap:0.375rem; }
+        .tag-menu-item:hover { background:rgba(142,122,168,0.15); }
+        .empty { text-align:center; padding:4rem 2rem; color:var(--color-text-secondary); }
+        .menu-btn { display:none; padding:0.375rem; border:none; background:none; cursor:pointer; color:var(--color-text-primary); }
+        @media (max-width: 768px) {
+            .sidebar { display:none; }
+            .sidebar.visible { display:flex; }
+            .menu-btn { display:flex; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg"></div>
+
+    <div class="sidebar" id="news-sidebar">
+        <div class="resize-handle" id="resize-handle"></div>
+        <a onclick="fetch('/apps/news/help?format=html',{headers:getHeaders?getHeaders():{}}).then(r=>r.text()).then(h=>{document.getElementById('article-list').innerHTML=h})" style="display:flex; align-items:center; gap:0.75rem; height:56px; min-height:56px; padding:0 1rem; border-bottom:1px solid var(--color-glass-border); color:var(--color-text-secondary); text-decoration:none; font-size:0.875rem; font-weight:500; flex-shrink:0; border-radius:0; cursor:pointer;">
+            <i data-lucide="book-open" style="width:18px; height:18px;"></i>
+            Documentation
+        </a>
+        <div class="sidebar-header">
+            <span style="font-weight:600; font-size:0.9375rem;"><i data-lucide="newspaper" class="w-4 h-4" style="display:inline;vertical-align:middle;margin-right:0.25rem;"></i> News</span>
+            <button class="btn" style="padding:0.25rem 0.5rem;" onclick="syncFeeds()" id="sync-btn" title="Sync All"><i data-lucide="refresh-cw" class="w-4 h-4" style="display:inline"></i></button>
+        </div>
+
+        <div style="flex:1; overflow-y:auto;">
+            <div class="sidebar-section">
+                <div class="sidebar-item active" id="all-feeds-item" onclick="selectAllFeeds()">
+                    <i data-lucide="rss" style="width:14px;height:14px;display:inline;flex-shrink:0;"></i>
+                    <span>All Feeds</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section" style="border-top:1px solid var(--color-glass-border); margin-top:0.25rem; padding-top:0.25rem;">
+                <div class="sidebar-section-title">Feeds <button class="add-btn" onclick="addFeed()" title="Add Feed"><i data-lucide="plus" class="w-3 h-3" style="display:inline"></i></button></div>
+                <div id="feeds-list"></div>
+            </div>
+
+            <div class="sidebar-section" style="border-top:1px solid var(--color-glass-border); margin-top:0.25rem; padding-top:0.25rem;">
+                <div class="sidebar-section-title">Tags <button class="add-btn" onclick="addTag()" title="Add Tag"><i data-lucide="plus" class="w-3 h-3" style="display:inline"></i></button></div>
+                <div id="tags-list"></div>
+            </div>
+        </div>
+
+        <div style="padding:0.5rem; border-top:1px solid var(--color-glass-border);">
+            <span id="status-text" style="font-size:0.6875rem; color:var(--color-text-secondary);"></span>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="toolbar">
+            <button class="menu-btn" onclick="document.getElementById('news-sidebar').classList.toggle('visible')"><i data-lucide="menu" style="width:20px;height:20px;display:inline;"></i></button>
+            <input type="text" id="search-input" placeholder="Search articles..." style="flex:1; max-width:400px;" onkeydown="if(event.key==='Enter')searchArticles()">
+        </div>
+        <div class="article-list" id="article-list">
+            <div class="empty" id="empty-state">
+                <i data-lucide="newspaper" style="width:48px;height:48px;display:block;margin:0 auto 1rem;color:var(--color-accent);"></i>
+                <h2 style="font-size:1.125rem;font-weight:600;margin-bottom:0.5rem;">News</h2>
+                <p>Click Sync to fetch articles from your feeds</p>
+                <div style="max-width:640px; margin:2rem auto 0; text-align:left;">
+                    <hr style="border-color:var(--color-glass-border); margin:1.5rem 0;">
+                    {{.DocsHTML}}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <template id="api-docs-tmpl">
+        <div style="max-width:640px; margin:2rem auto 0; text-align:left;">
+            <hr style="border-color:var(--color-glass-border); margin:1.5rem 0;">
+            {{.DocsHTML}}
+        </div>
+    </template>
+
+    <script>
+        window.jsDebug = function() { var u = (window.parent && window.parent.currentUser) || {}; if (u.js_debug) console.log.apply(console, arguments); };
+        window.jsWarn = function() { var u = (window.parent && window.parent.currentUser) || {}; if (u.js_debug) console.warn.apply(console, arguments); };
+        (function() {
+            const html = document.documentElement;
+            html.setAttribute('data-theme', localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+            window.addEventListener('message', e => { if (e.data && e.data.type === 'theme-change') html.setAttribute('data-theme', e.data.theme); });
+        })();
+
+        let feeds = [], tags = [], currentFeedID = '', currentTagID = '';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadFeeds();
+            loadTags();
+            initResize();
+        });
+
+        function initResize() {
+            const sidebar = document.getElementById('news-sidebar');
+            const handle = document.getElementById('resize-handle');
+            let isResizing = false, startX, startW;
+            handle.addEventListener('mousedown', e => { isResizing = true; startX = e.clientX; startW = sidebar.offsetWidth; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; });
+            document.addEventListener('mousemove', e => { if (!isResizing) return; const w = startW + (e.clientX - startX); if (w >= 180 && w <= 400) sidebar.style.width = w + 'px'; });
+            document.addEventListener('mouseup', () => { if (isResizing) { isResizing = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; } });
+        }
+
+        async function loadFeeds() {
+            try {
+                const resp = await fetch('api/feeds');
+                feeds = (await resp.json()) || [];
+            } catch(e) { feeds = []; }
+            renderFeedsSidebar();
+            loadArticles();
+        }
+
+        function renderFeedsSidebar() {
+            const list = document.getElementById('feeds-list');
+            if (!feeds.length) {
+                list.innerHTML = '<div style="padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--color-text-secondary);">No feeds yet</div>';
+                return;
+            }
+            list.innerHTML = feeds.map(f => {
+                const active = f.id === currentFeedID ? ' active' : '';
+                const icon = f.image_url ? '<img src="' + esc(f.image_url) + '" style="width:14px;height:14px;border-radius:2px;flex-shrink:0;" onerror="this.style.display=\'none\'">' : '<i data-lucide="rss" style="width:14px;height:14px;display:inline;flex-shrink:0;"></i>';
+                return '<div class="sidebar-item' + active + '" onclick="selectFeed(\'' + f.id + '\')">' +
+                    icon +
+                    '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(f.title) + '</span>' +
+                    '<button class="delete-btn" onclick="event.stopPropagation();deleteFeed(\'' + f.id + '\')" title="Remove"><i data-lucide="x" style="width:12px;height:12px;display:inline;"></i></button>' +
+                    '</div>';
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function clearSelection() {
+            currentFeedID = '';
+            currentTagID = '';
+            viewStarred = false;
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+        }
+
+        function selectAllFeeds() {
+            clearSelection();
+            document.getElementById('all-feeds-item').classList.add('active');
+            loadArticles();
+        }
+
+        function selectFeed(feedID) {
+            clearSelection();
+            currentFeedID = feedID;
+            const el = document.querySelector('[onclick="selectFeed(\'' + feedID + '\')"]');
+            if (el) el.classList.add('active');
+            loadArticles();
+        }
+
+        function selectTag(tagID) {
+            clearSelection();
+            currentTagID = tagID;
+            const el = document.querySelector('[onclick="selectTag(\'' + tagID + '\')"]');
+            if (el) el.classList.add('active');
+            loadArticlesByTag(tagID);
+        }
+
+        async function loadTags() {
+            try {
+                const resp = await fetch('api/tags');
+                if (!resp.ok) { console.error('loadTags status:', resp.status); tags = []; renderTagsSidebar(); return; }
+                const text = await resp.text();
+                jsDebug('loadTags response:', text);
+                tags = JSON.parse(text) || [];
+            } catch(e) { console.error('loadTags error:', e); tags = []; }
+            renderTagsSidebar();
+        }
+
+        function renderTagsSidebar() {
+            const list = document.getElementById('tags-list');
+            if (!tags.length) {
+                list.innerHTML = '<div style="padding:0.5rem 0.75rem;font-size:0.75rem;color:var(--color-text-secondary);">No tags yet</div>';
+                return;
+            }
+            list.innerHTML = tags.map(t => {
+                const active = t.id === currentTagID ? ' active' : '';
+                return '<div class="sidebar-item' + active + '" onclick="selectTag(\'' + t.id + '\')">' +
+                    '<span class="tag-dot" style="background:' + esc(t.color) + ';"></span>' +
+                    '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.name) + '</span>' +
+                    '<button class="delete-btn" onclick="event.stopPropagation();deleteTag(\'' + t.id + '\')" title="Remove"><i data-lucide="x" style="width:12px;height:12px;display:inline;"></i></button>' +
+                    '</div>';
+            }).join('');
+            lucide.createIcons();
+        }
+
+        async function addTag() {
+            const name = prompt('Tag name:');
+            if (!name) return;
+            const color = prompt('Color (hex, e.g. #60a5fa):', '#7d6b96') || '#7d6b96';
+            try {
+                await fetch('api/tags', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, color})});
+                await loadTags();
+            } catch(e) { alert('Failed: ' + e.message); }
+        }
+
+        async function deleteTag(id) {
+            var confirmed = await window.confirmModal.show({title:'Delete Tag', message:'Delete this tag?', confirmText:'Delete', confirmClass:'btn-danger'});
+            if (!confirmed) return;
+            await fetch('api/tags/' + id, {method:'DELETE'});
+            if (currentTagID === id) selectAllFeeds();
+            await loadTags();
+        }
+
+        async function loadArticlesByTag(tagID) {
+            try {
+                const resp = await fetch('api/tags/' + tagID + '/articles?limit=50');
+                renderArticles((await resp.json()) || []);
+            } catch(e) { showEmpty(); }
+        }
+
+        async function toggleArticleTag(articleID, tagID) {
+            await fetch('api/articles/' + articleID + '/tag', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({tag_id: tagID})});
+        }
+
+        async function loadArticles() {
+            if (currentTagID) { loadArticlesByTag(currentTagID); return; }
+            let url = 'api/articles?limit=50';
+            if (currentFeedID) url += '&feed_id=' + currentFeedID;
+            try {
+                const resp = await fetch(url);
+                let articles = (await resp.json()) || [];
+                renderArticles(articles);
+            } catch(e) { showEmpty(); }
+        }
+
+        function searchArticles() {
+            const q = document.getElementById('search-input').value.trim();
+            if (!q) { loadArticles(); return; }
+            fetch('api/search?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(articles => renderArticles(articles || []))
+                .catch(() => {});
+        }
+
+        function renderArticles(articles) {
+            const list = document.getElementById('article-list');
+            if (!articles.length) { showEmpty(); return; }
+            list.innerHTML = articles.map(a => {
+                const date = new Date(a.published_at).toLocaleDateString('en-US', {month:'short', day:'numeric'});
+                const readClass = a.is_read ? ' read' : '';
+                const desc = (a.description || '').substring(0, 200);
+                const articleTags = (a.tags || []).map(t => {
+                    const tag = tags.find(tg => tg.name === t);
+                    const c = tag ? tag.color : '#7d6b96';
+                    return '<span class="tag-pill" style="background:' + c + '22;color:' + c + ';border-color:' + c + '44;">' + esc(t) + '</span>';
+                }).join('');
+                return '<div class="article-item' + readClass + '" style="position:relative;" onclick="openArticle(\'' + esc(a.link) + '\',\'' + a.id + '\')">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:start;">' +
+                    '<div class="article-title" style="flex:1;">' + esc(a.title) + '</div>' +
+                    '</div>' +
+                    '<div class="article-meta">' + esc(a.feed_title || '') + ' · ' + date + '</div>' +
+                    '<div style="margin-top:0.25rem;display:flex;align-items:center;flex-wrap:wrap;">' + articleTags +
+                    '<span class="tag-pill" style="background:var(--color-glass-base);color:var(--color-text-secondary);border-color:var(--color-glass-border);cursor:pointer;" onclick="event.stopPropagation();showTagMenu(\'' + a.id + '\',this)">+ tag</span></div>' +
+                    (desc ? '<div class="article-desc">' + esc(desc) + '</div>' : '') +
+                    '</div>';
+            }).join('');
+        }
+
+        function openArticle(link, id) {
+            fetch('api/articles/' + id + '/read', {method:'POST'});
+            if (link) window.open(link, '_blank');
+            if (window.parent !== window) window.parent.postMessage({ type: 'localitas-navigate', search: '?id=' + id }, '*');
+        }
+
+        async function addFeed() {
+            const url = prompt('Enter RSS/Atom feed URL:');
+            if (!url) return;
+            try {
+                const resp = await fetch('api/feeds', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url: url})});
+                if (!resp.ok) { const e = await resp.json(); alert(e.error); return; }
+                await loadFeeds();
+                document.getElementById('status-text').textContent = 'Feed added';
+            } catch(e) { alert('Failed: ' + e.message); }
+        }
+
+        async function deleteFeed(id) {
+            var confirmed = await window.confirmModal.show({title:'Remove Feed', message:'Remove this feed and all its articles?', confirmText:'Remove', confirmClass:'btn-danger'});
+            if (!confirmed) return;
+            await fetch('api/feeds/' + id, {method:'DELETE'});
+            if (currentFeedID === id) currentFeedID = '';
+            await loadFeeds();
+        }
+
+        async function syncFeeds() {
+            const btn = document.getElementById('sync-btn');
+            btn.disabled = true;
+            document.getElementById('status-text').textContent = 'Syncing...';
+            try {
+                const resp = await fetch('api/feeds/sync', {method:'POST'});
+                const data = await resp.json();
+                document.getElementById('status-text').textContent = (data.new_articles || 0) + ' new articles';
+                await loadArticles();
+            } catch(e) {
+                document.getElementById('status-text').textContent = 'Sync failed';
+            }
+            btn.disabled = false;
+        }
+
+        function showTagMenu(articleID, el) {
+            document.querySelectorAll('.tag-menu').forEach(m => m.remove());
+            if (!tags.length) { alert('No tags yet. Create one in the sidebar.'); return; }
+            const menu = document.createElement('div');
+            menu.className = 'tag-menu';
+            menu.innerHTML = tags.map(t =>
+                '<div class="tag-menu-item" onclick="event.stopPropagation();applyTag(\'' + articleID + '\',\'' + t.id + '\')">' +
+                '<span class="tag-dot" style="background:' + esc(t.color) + ';"></span>' + esc(t.name) + '</div>'
+            ).join('');
+            const article = el.closest('.article-item');
+            article.appendChild(menu);
+            setTimeout(() => document.addEventListener('click', function dismiss() { menu.remove(); document.removeEventListener('click', dismiss); }), 0);
+        }
+
+        async function applyTag(articleID, tagID) {
+            document.querySelectorAll('.tag-menu').forEach(m => m.remove());
+            await toggleArticleTag(articleID, tagID);
+            loadArticles();
+        }
+
+        function showEmpty() {
+            const list = document.getElementById('article-list');
+            const docs = document.getElementById('api-docs-tmpl').content.cloneNode(true);
+            list.innerHTML = '<div class="empty"><p>No articles yet. Click Sync to fetch.</p></div>';
+            list.appendChild(docs);
+        }
+
+        function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+        var urlArticleId = new URLSearchParams(window.location.search).get('id');
+        if (urlArticleId) {
+            fetch('api/articles/' + urlArticleId + '/read', {method:'POST'});
+        }
+    </script>
+
+<div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:100;">
+    <div id="confirm-modal-backdrop" style="position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);"></div>
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:1rem;">
+        <div style="background:var(--color-glass-base,#fff);border:1.5px solid var(--color-glass-border,rgba(139,117,169,0.35));border-radius:1rem;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+            <div style="padding:1.5rem;">
+                <h3 id="confirm-modal-title" style="font-size:1.125rem;font-weight:600;color:var(--color-text-primary,#1a1625);margin:0 0 0.5rem 0;">Confirm</h3>
+                <p id="confirm-modal-message" style="font-size:0.875rem;color:var(--color-text-secondary,#4a3f5c);margin:0 0 1.5rem 0;">Are you sure?</p>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+                    <button id="confirm-modal-cancel" style="padding:0.5rem 1rem;border-radius:0.5rem;font-size:0.8125rem;font-weight:500;border:1px solid var(--color-glass-border,#ddd);background:var(--color-glass-base,#fff);color:var(--color-text-primary,#333);cursor:pointer;">Cancel</button>
+                    <button id="confirm-modal-confirm" style="padding:0.5rem 1rem;border-radius:0.5rem;font-size:0.8125rem;font-weight:500;border:none;background:var(--color-error,#e88b8b);color:white;cursor:pointer;">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+window.confirmModal={show:function(opts){return new Promise(function(resolve){
+    var m=document.getElementById('confirm-modal');
+    var bd=document.getElementById('confirm-modal-backdrop');
+    document.getElementById('confirm-modal-title').textContent=opts.title||'Confirm';
+    document.getElementById('confirm-modal-message').textContent=opts.message||'Are you sure?';
+    var cb=document.getElementById('confirm-modal-confirm');
+    cb.textContent=opts.confirmText||'Delete';
+    cb.style.background=(opts.confirmClass==='btn-primary')?'var(--color-accent,#7d6b96)':'var(--color-error,#e88b8b)';
+    m.style.display='block';
+    function close(v){m.style.display='none';resolve(v);bd.onclick=null;document.getElementById('confirm-modal-cancel').onclick=null;cb.onclick=null;}
+    bd.onclick=function(){close(false);};
+    document.getElementById('confirm-modal-cancel').onclick=function(){close(false);};
+    cb.onclick=function(){close(true);};
+});}};
+</script>
+</body>
+</html>
+{{end}}

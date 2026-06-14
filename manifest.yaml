@@ -1,0 +1,10 @@
+name: news
+display_name: News
+description: RSS/Atom feed reader with collections and full-text search
+version: 0.1.0
+
+database:
+  name: news
+  system: true
+
+migrations_dir: migrations
