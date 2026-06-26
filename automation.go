@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const syncAutomationName = "News Feed Sync"
+const syncAutomationName = "News: Feed Sync"
 
 // RegisterSyncAutomation registers a periodic feed sync job with core's automation
 // system via its HTTP API. Only creates if it doesn't already exist — user
@@ -25,7 +25,7 @@ func RegisterSyncAutomation(coreURL, token, appURL string) {
 		"description": "Fetches new articles from all RSS/Atom feeds every hour",
 		"dag_config": map[string]interface{}{
 			"dag_id":      "news_feed_sync",
-			"name":        "News Feed Sync",
+			"name":        "News: Feed Sync",
 			"description": "Calls the news app sync endpoint",
 			"nodes": []map[string]interface{}{
 				{
