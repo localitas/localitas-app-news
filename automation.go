@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 )
@@ -16,7 +15,7 @@ const syncAutomationName = "News: Feed Sync"
 // modifications to the schedule are preserved across app restarts.
 func RegisterSyncAutomation(coreURL, token, appURL string) {
 	if automationExists(coreURL, token, syncAutomationName) {
-		log.Printf("✅ News sync automation already registered (user config preserved)")
+		logger.Info("news sync automation already registered")
 		return
 	}
 
@@ -58,7 +57,7 @@ func RegisterSyncAutomation(coreURL, token, appURL string) {
 	b, _ := json.Marshal(body)
 	req, err := http.NewRequest("POST", coreURL+"/apps/automation/api/automations", bytes.NewReader(b))
 	if err != nil {
-		log.Printf("⚠️  Failed to create automation registration request: %v", err)
+		logger.Error("failed to create automation registration request", "error", err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -69,15 +68,15 @@ func RegisterSyncAutomation(coreURL, token, appURL string) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("⚠️  Failed to register news sync automation: %v", err)
+		logger.Error("failed to register news sync automation", "error", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK {
-		log.Printf("✅ Registered news sync automation (hourly)")
+		logger.Info("registered news sync automation", "interval", "hourly")
 	} else {
-		log.Printf("⚠️  Automation registration returned %d", resp.StatusCode)
+		logger.Warn("automation registration returned unexpected status", "status", resp.StatusCode)
 	}
 }
 

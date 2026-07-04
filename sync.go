@@ -2,7 +2,6 @@ package news
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
 )
@@ -65,7 +64,7 @@ func (s *Store) SyncAllFeeds(ctx context.Context) (*SyncResult, error) {
 	}
 
 	result.DurationMs = time.Since(start).Milliseconds()
-	log.Printf("Feed sync: %d/%d feeds, %d new articles, %dms", result.SuccessCount, result.TotalFeeds, result.NewArticles, result.DurationMs)
+	logger.Info("feed sync complete", "success", result.SuccessCount, "total", result.TotalFeeds, "new_articles", result.NewArticles, "duration_ms", result.DurationMs)
 	return result, nil
 }
 
