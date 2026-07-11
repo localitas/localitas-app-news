@@ -102,7 +102,7 @@ func (h *handler) handleRefreshFeed(w http.ResponseWriter, r *http.Request) {
 		return m, nil
 	}
 
-	if client.RunAsync(w, r, h.app.client, work) {
+	if h.app.client.RunAsync(w, r, work) {
 		return
 	}
 
