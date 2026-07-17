@@ -111,6 +111,8 @@ func serveAction(ctx context.Context, cmd *cli.Command) error {
 		logger.Error("service registry failed", "error", err)
 	}
 
+	news.RegisterSyncAutomation(ctx, c, selfURL)
+
 	shutdown, err := news.BroadcastMDNS(addr.Port, news.DefaultHealth.Name)
 	if err != nil {
 		logger.Error("mDNS broadcast failed", "error", err)
