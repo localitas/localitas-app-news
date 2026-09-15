@@ -11,6 +11,19 @@ import (
 	"time"
 )
 
+// httpClient is a single pooled client shared across all feed fetches, created
+// once instead of per feed. A sync fans out to feeds concurrently (5 workers),
+// so MaxIdleConnsPerHost is raised above the default of 2 to let keep-alive
+// connections be reused across workers. http.Client is safe for concurrent use.
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        20,
+		MaxIdleConnsPerHost: 5,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
+
 type RSS struct {
 	XMLName xml.Name   `xml:"rss"`
 	Channel RSSChannel `xml:"channel"`
@@ -88,13 +101,12 @@ type ParsedArticle struct {
 }
 
 func FetchAndParseFeed(feedURL string) (*ParsedFeed, []*ParsedArticle, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("GET", feedURL, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("User-Agent", "Localitas News/1.0")
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch feed: %w", err)
 	}
