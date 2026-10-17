@@ -3,6 +3,7 @@ package news
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -15,7 +16,7 @@ type handler struct {
 }
 
 func (h *handler) handleListCollections(w http.ResponseWriter, r *http.Request) {
-	userID := client.UserIDFromRequest(r)
+	userID := client.GetUserID(r.Context())
 	cols, err := h.app.Store.ListCollections(r.Context(), userID)
 	if err != nil {
 		writeErr(w, r, http.StatusInternalServerError, "%v", err)
@@ -34,7 +35,7 @@ func (h *handler) handleCreateCollection(w http.ResponseWriter, r *http.Request)
 		writeErr(w, r, http.StatusBadRequest, "invalid body")
 		return
 	}
-	userID := client.UserIDFromRequest(r)
+	userID := client.GetUserID(r.Context())
 	col, err := h.app.Store.CreateCollection(r.Context(), userID, req.Name, req.Description, req.Icon)
 	if err != nil {
 		writeErr(w, r, http.StatusInternalServerError, "%v", err)
@@ -45,7 +46,10 @@ func (h *handler) handleCreateCollection(w http.ResponseWriter, r *http.Request)
 
 func (h *handler) handleDeleteCollection(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	h.app.Store.DeleteCollection(r.Context(), id)
+	if err := h.app.Store.DeleteCollection(r.Context(), client.GetUserID(r.Context()), id); err != nil {
+		writeStoreErr(w, r, err)
+		return
+	}
 	writeJSON(w, r, http.StatusOK, map[string]bool{"success": true})
 }
 
@@ -71,6 +75,12 @@ func (h *handler) handleAddFeed(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, r, http.StatusBadRequest, "url is required")
 		return
 	}
+	if req.CollectionID != "" {
+		if err := h.app.Store.OwnsCollection(r.Context(), client.GetUserID(r.Context()), req.CollectionID); err != nil {
+			writeStoreErr(w, r, err)
+			return
+		}
+	}
 	parsed, _, err := FetchAndParseFeed(req.URL)
 	if err != nil {
 		writeErr(w, r, http.StatusBadRequest, "failed to fetch feed: %v", err)
@@ -86,7 +96,10 @@ func (h *handler) handleAddFeed(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) handleDeleteFeed(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	h.app.Store.DeleteFeed(r.Context(), id)
+	if err := h.app.Store.DeleteFeed(r.Context(), id); err != nil {
+		writeErr(w, r, http.StatusInternalServerError, "%v", err)
+		return
+	}
 	writeJSON(w, r, http.StatusOK, map[string]bool{"success": true})
 }
 
@@ -245,4 +258,14 @@ func intParam(r *http.Request, key string, def int) int {
 		}
 	}
 	return def
+}
+
+// writeStoreErr answers 404 for a collection that is not the caller's, 500
+// for anything else.
+func writeStoreErr(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, ErrNotFound) {
+		writeErr(w, r, http.StatusNotFound, "not found")
+		return
+	}
+	writeErr(w, r, http.StatusInternalServerError, "%v", err)
 }

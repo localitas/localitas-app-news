@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -69,8 +70,33 @@ func (s *Store) ListCollections(ctx context.Context, userID string) ([]*Collecti
 	return out, nil
 }
 
-func (s *Store) DeleteCollection(ctx context.Context, id string) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM collections WHERE id = ?", id)
+// ErrNotFound is returned for a collection that does not exist or belongs
+// to another user: the two are indistinguishable to the caller.
+var ErrNotFound = errors.New("not found")
+
+// DeleteCollection removes userID's collection id.
+func (s *Store) DeleteCollection(ctx context.Context, userID, id string) error {
+	res, err := s.db.ExecContext(ctx, "DELETE FROM collections WHERE id = ? AND user_id = ?", id, userID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// OwnsCollection reports whether userID owns collection id.
+func (s *Store) OwnsCollection(ctx context.Context, userID, id string) error {
+	var found string
+	err := s.db.QueryRowContext(ctx, "SELECT id FROM collections WHERE id = ? AND user_id = ?", id, userID).Scan(&found)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
 	return err
 }
 

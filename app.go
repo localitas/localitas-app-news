@@ -71,22 +71,39 @@ func (a *App) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", a.handleIndex)
 	mux.HandleFunc("GET /swagger.json", HandleSwagger)
 	mux.HandleFunc("GET /help.md", handleHelpMarkdown)
-	mux.HandleFunc("GET /api/collections", h.handleListCollections)
-	mux.HandleFunc("POST /api/collections", h.handleCreateCollection)
-	mux.HandleFunc("DELETE /api/collections/{id}", h.handleDeleteCollection)
-	mux.HandleFunc("GET /api/feeds", h.handleListFeeds)
-	mux.HandleFunc("POST /api/feeds", h.handleAddFeed)
-	mux.HandleFunc("DELETE /api/feeds/{id}", h.handleDeleteFeed)
-	mux.HandleFunc("POST /api/feeds/sync", h.handleRefreshFeed)
-	mux.HandleFunc("GET /api/articles", h.handleListArticles)
-	mux.HandleFunc("POST /api/articles/{id}/read", h.handleMarkRead)
-	mux.HandleFunc("POST /api/articles/{id}/star", h.handleToggleStar)
-	mux.HandleFunc("GET /api/search", h.handleSearch)
-	mux.HandleFunc("GET /api/defaults", h.handleListDefaults)
-	mux.HandleFunc("GET /api/tags", h.handleListTags)
-	mux.HandleFunc("POST /api/tags", h.handleCreateTag)
-	mux.HandleFunc("DELETE /api/tags/{id}", h.handleDeleteTag)
-	mux.HandleFunc("POST /api/articles/{id}/tag", h.handleTagArticle)
-	mux.HandleFunc("DELETE /api/articles/{id}/tags/{tag_id}", h.handleUntagArticle)
-	mux.HandleFunc("GET /api/tags/{id}/articles", h.handleListArticlesByTag)
+	// Collections belong to the user core vouches for; feeds, articles and
+	// tags are the household's shared reading list. Every route needs a
+	// verified user, and changes need write scope.
+	user := func(pattern string, handler http.HandlerFunc) {
+		mux.Handle(pattern, client.AuthMiddleware(handler))
+	}
+	writer := func(pattern string, handler http.HandlerFunc) {
+		user(pattern, client.RequireScopeFunc(client.ScopeWrite, handler))
+	}
+	user("GET /api/collections", h.handleListCollections)
+	writer("POST /api/collections", h.handleCreateCollection)
+	writer("DELETE /api/collections/{id}", h.handleDeleteCollection)
+	user("GET /api/feeds", h.handleListFeeds)
+	writer("POST /api/feeds", h.handleAddFeed)
+	writer("DELETE /api/feeds/{id}", h.handleDeleteFeed)
+	// Sync serves core's hourly cron and a user's refresh button.
+	syncAsUser := client.AuthMiddleware(client.RequireScopeFunc(client.ScopeWrite, h.handleRefreshFeed))
+	mux.HandleFunc("POST /api/feeds/sync", func(w http.ResponseWriter, r *http.Request) {
+		if client.IsSystemRequest(r) {
+			h.handleRefreshFeed(w, r)
+			return
+		}
+		syncAsUser.ServeHTTP(w, r)
+	})
+	user("GET /api/articles", h.handleListArticles)
+	writer("POST /api/articles/{id}/read", h.handleMarkRead)
+	writer("POST /api/articles/{id}/star", h.handleToggleStar)
+	user("GET /api/search", h.handleSearch)
+	user("GET /api/defaults", h.handleListDefaults)
+	user("GET /api/tags", h.handleListTags)
+	writer("POST /api/tags", h.handleCreateTag)
+	writer("DELETE /api/tags/{id}", h.handleDeleteTag)
+	writer("POST /api/articles/{id}/tag", h.handleTagArticle)
+	writer("DELETE /api/articles/{id}/tags/{tag_id}", h.handleUntagArticle)
+	user("GET /api/tags/{id}/articles", h.handleListArticlesByTag)
 }

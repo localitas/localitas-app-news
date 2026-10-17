@@ -23,7 +23,7 @@ build-linux: lint
 	go build -o bin/news-server ./cmd/news-server
 
 test: lint
-	go test -v ./...
+	go test -tags sqlite_fts5 -v ./...
 
 lint:
 	@echo "Running gofmt..."
