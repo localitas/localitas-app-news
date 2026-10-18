@@ -33,7 +33,7 @@ func main() {
 	app := &cli.Command{
 		Name:    "news-server",
 		Usage:   "News app server",
-		Version: version,
+		Version: version + " (" + commit + ")",
 		Commands: []*cli.Command{
 			serveCommand(),
 			migrateCommand(),

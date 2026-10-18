@@ -38,7 +38,7 @@ func identity(userID, permission string) string {
 
 func newOwnershipApp(t *testing.T) (*App, *http.ServeMux) {
 	t.Helper()
-	db, err := sql.Open("sqlite3", filepath.Join(t.TempDir(), "news.sqlitedb"))
+	db, err := sql.Open("sqlite3", filepath.Join(t.TempDir(), "news.sqlitedb")+"?_synchronous=OFF&_journal_mode=MEMORY")
 	if err != nil {
 		t.Fatal(err)
 	}

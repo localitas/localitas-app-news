@@ -7,6 +7,11 @@ description: RSS feed reader and article manager
 
 Subscribe to RSS feeds, organize them into collections, and read articles.
 
+Each user has their own subscriptions, collections, tags, and read and
+starred articles. Two users who subscribe to the same feed share its fetched
+articles, never each other's reading state. What the household had before
+reading became per-user goes to the first admin who opens News.
+
 ## Collections
 
 Group feeds into named collections for organization.
