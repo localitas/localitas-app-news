@@ -93,6 +93,25 @@ func contains(ids []string, id string) bool {
 	return false
 }
 
+func TestFeedSync_ReportsEachFeed(t *testing.T) {
+	_, mux := newOwnershipApp(t)
+	rec := do(mux, "POST", "/api/feeds", identity("alice", "write"), `{"url":"`+feedServer(t)+`/a"}`)
+	mustStatus(t, rec, http.StatusCreated, "subscribe")
+	feed := decode[Feed](t, rec)
+
+	rec = do(mux, "POST", "/api/feeds/sync", testAPIToken, "")
+	mustStatus(t, rec, http.StatusOK, "sync")
+	assertWireKeys(t, rec.Body.Bytes(), "total_feeds", "success_count", "failure_count", "new_articles", "feed_results", "duration_ms")
+	var result SyncResult
+	strictDecode(t, rec.Body.Bytes(), &result)
+	if result.TotalFeeds != 1 || result.SuccessCount != 1 || result.FailureCount != 0 || result.NewArticles != 1 || len(result.FeedResults) != 1 {
+		t.Fatalf("sync = %+v, want the one feed synced with its one article", result)
+	}
+	if fr := result.FeedResults[0]; fr != (FeedSyncResult{FeedID: feed.ID, FeedTitle: feed.Title, Success: true, NewArticles: 1}) {
+		t.Fatalf("feed result = %+v", fr)
+	}
+}
+
 func TestFeeds_BelongToTheirSubscribers(t *testing.T) {
 	_, mux := newOwnershipApp(t)
 	feeds := feedServer(t)

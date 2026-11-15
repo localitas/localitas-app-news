@@ -1,7 +1,6 @@
 package news
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -104,18 +103,7 @@ func (h *handler) handleDeleteFeed(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) handleRefreshFeed(w http.ResponseWriter, r *http.Request) {
-	work := func(ctx context.Context) (map[string]interface{}, error) {
-		result, err := h.app.Store.SyncAllFeeds(ctx)
-		if err != nil {
-			return nil, err
-		}
-		data, _ := json.Marshal(result)
-		var m map[string]interface{}
-		json.Unmarshal(data, &m)
-		return m, nil
-	}
-
-	if h.app.client.RunAsync(w, r, work) {
+	if client.RunAsync(h.app.client, w, r, h.app.Store.SyncAllFeeds) {
 		return
 	}
 
