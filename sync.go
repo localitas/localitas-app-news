@@ -71,7 +71,7 @@ func (s *Store) SyncAllFeeds(ctx context.Context) (*SyncResult, error) {
 func (s *Store) syncSingleFeed(ctx context.Context, feed *Feed) FeedSyncResult {
 	fr := FeedSyncResult{FeedID: feed.ID, FeedTitle: feed.Title}
 
-	parsed, articles, err := FetchAndParseFeed(feed.URL)
+	parsed, articles, err := FetchAndParseFeed(ctx, feed.URL)
 	if err != nil {
 		fr.Error = err.Error()
 		s.UpdateFeedError(ctx, feed.ID, err.Error())

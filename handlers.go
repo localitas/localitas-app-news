@@ -81,7 +81,7 @@ func (h *handler) handleAddFeed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	parsed, _, err := FetchAndParseFeed(req.URL)
+	parsed, _, err := FetchAndParseFeed(r.Context(), req.URL)
 	if err != nil {
 		writeErr(w, r, http.StatusBadRequest, "failed to fetch feed: %v", err)
 		return
