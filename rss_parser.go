@@ -1,28 +1,24 @@
 package news
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/localitas/localitas-go/httputil"
 )
 
-// httpClient is a single pooled client shared across all feed fetches, created
-// once instead of per feed. A sync fans out to feeds concurrently (5 workers),
-// so MaxIdleConnsPerHost is raised above the default of 2 to let keep-alive
-// connections be reused across workers. http.Client is safe for concurrent use.
-var httpClient = &http.Client{
-	Timeout: 30 * time.Second,
-	Transport: &http.Transport{
-		MaxIdleConns:        20,
-		MaxIdleConnsPerHost: 5,
-		IdleConnTimeout:     90 * time.Second,
-	},
-}
+// feeds asks a feed's server, again when it fails for a moment, through the
+// SDK's pooled client, which drops an idle connection a NAT lost. A feed
+// keeps the 30 s it always had, now for each try.
+var feeds = httputil.Upstream{UserAgent: "Localitas News/1.0", AttemptTimeout: 30 * time.Second}
 
 type RSS struct {
 	XMLName xml.Name   `xml:"rss"`
@@ -100,13 +96,12 @@ type ParsedArticle struct {
 	PublishedAt time.Time
 }
 
-func FetchAndParseFeed(feedURL string) (*ParsedFeed, []*ParsedArticle, error) {
-	req, err := http.NewRequest("GET", feedURL, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+func FetchAndParseFeed(ctx context.Context, feedURL string) (*ParsedFeed, []*ParsedArticle, error) {
+	service := "feed"
+	if u, err := url.Parse(feedURL); err == nil && u.Host != "" {
+		service = "feed " + u.Host
 	}
-	req.Header.Set("User-Agent", "Localitas News/1.0")
-	resp, err := httpClient.Do(req)
+	resp, err := feeds.Get(ctx, service, feedURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch feed: %w", err)
 	}
