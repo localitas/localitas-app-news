@@ -58,55 +58,68 @@ Create tags and apply them to articles for custom categorization.
 
 ## Build & Deploy
 
+Run these in the app's repository, `~/localitas-app-news`.
+
 ### Version
 
 ```bash
-./news-server --version
+bin/news-server --version
 ```
 
 ### Build from source
 
 ```bash
-# Development (native)
-cd apps/news && go build -o bin/news-server ./cmd/news-server
+# Native binary
+go build -o bin/news-server ./cmd/news-server
 
-# Cross-compile for Linux
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -trimpath -o bin/news-server-linux-amd64 ./cmd/news-server
+# Native binary plus the Linux amd64 binary the Docker image is built from (news-server-linux-amd64)
+make build-linux
 ```
+
+`make lint` runs gofmt and go vet; `make test` runs them and then the tests. `make build` runs only the lint step.
+
+### Run natively
+
+```bash
+make start   # writes the launchd service com.localitas.app.news for bin/news-server and loads it on port 9204
+make stop
+make logs    # follows ~/.localitas/logs/news/stdout.log
+```
+
+The app announces itself to core when it starts, and core serves it at `/apps/ext/news/`.
 
 ### Docker
 
-Build a Docker image directly from the binary:
-
 ```bash
-# Default base image (debian:12-slim)
-./news-server docker-build
-
-# Custom base image
-./news-server docker-build --base ubuntu:24.04
-
-# Custom Dockerfile
-./news-server docker-build --dockerfile ./my.Dockerfile
-
-# Tag and push to registry
-./news-server docker-build --tag ghcr.io/localitas/news:latest --push
+make build-docker   # builds the Linux binary and the news:latest image
+make start-docker   # runs container "news" on port 9204, labelled localitas.app=true
+make stop-docker
+make logs-docker
 ```
 
-The `docker-build` command requires a Linux amd64 binary in the same directory. Run `make deploy-build` from the project root first.
+Core registers containers labelled `localitas.app=true` once Docker reports them healthy.
+
+### Publish
+
+```bash
+# Run the tests, build the image, push ghcr.io/localitas/localitas-app-news:latest and :<VERSION>
+make docker-push
+
+# Build dist/news-server-darwin-arm64 and dist/news-server-darwin-amd64
+# and create GitHub release vX.Y.Z on this repository with them
+make release VERSION=vX.Y.Z
+```
+
+`VERSION` defaults to `git describe --tags --always --dirty`.
 
 ### Download
 
-Pre-built binaries are available on the [GitHub releases page](https://github.com/localitas/localitas/releases).
+Pre-built macOS binaries are on the [releases page](https://github.com/localitas/localitas-app-news/releases):
+- `news-server-darwin-arm64` (Apple Silicon)
+- `news-server-darwin-amd64` (Intel)
 
-Each release includes three builds per app:
-- `news-server-darwin-arm64` (macOS Apple Silicon)
-- `news-server-linux-amd64` (Linux x86_64)
-- `news-server-linux-arm64` (Linux ARM64)
+Every push to `main` publishes a release: `.github/workflows/release.yml` runs the tests and releases both binaries as `v0.1.<commit count>.<UTC timestamp>`. `make release` publishes one by hand.
 
 Download with the GitHub CLI:
 
-    gh release download --repo localitas/localitas --pattern 'news-server-*'
-
-### Release
-
-All app binaries are published to GitHub releases as part of `make deploy-upload-image`.
+    gh release download --repo localitas/localitas-app-news --pattern 'news-server-*'
