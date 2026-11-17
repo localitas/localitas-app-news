@@ -31,7 +31,7 @@ cd ~/localitas-app-news
 
 # Build and run locally
 make build
-./bin/news-server serve --listen :8000
+./bin/news-server serve --listen 127.0.0.1:8000
 
 # Or via launchd (macOS)
 make start
