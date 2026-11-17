@@ -10,6 +10,9 @@ PLIST_FILE := $(HOME)/Library/LaunchAgents/$(PLIST_NAME).plist
 LOG_DIR := $(HOME)/.localitas/logs/news
 BIN_PATH := $(shell pwd)/bin/news-server
 WORK_DIR := $(shell pwd)
+# The Docker daemon's architecture: the image's base is pulled for it, so the
+# Linux binary is built for it too and runs natively, not under emulation.
+LINUX_ARCH ?= $(strip $(shell docker version --format '{{.Server.Arch}}' 2>/dev/null || go env GOARCH))
 
 # ── Build & Test ──────────────────────────────────────────────
 
@@ -18,8 +21,8 @@ build: lint
 	go build -o bin/news-server ./cmd/news-server
 
 build-linux: lint
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -trimpath \
-		-o news-server-linux-amd64 ./cmd/news-server
+	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -ldflags "-s -w" -trimpath \
+		-o news-server-linux-$(LINUX_ARCH) ./cmd/news-server
 
 test: lint
 	go test -tags sqlite_fts5 -v ./...
@@ -72,7 +75,7 @@ logs-err:
 # ── Docker ────────────────────────────────────────────────────
 
 build-docker: build-linux
-	docker build -t news:latest .
+	docker build --platform linux/$(LINUX_ARCH) -t news:latest .
 
 start-docker: build-docker stop-docker
 	@docker run -d -p $(PORT):8000 --name $(APP_NAME) \
